@@ -1,0 +1,282 @@
+//
+//  HKUITool.m
+//  WechatArticle
+//
+//  Created by 找房 on 15/12/19.
+//  Copyright © 2015年 zhaofang. All rights reserved.
+//
+
+#import "HKUITool.h"
+#import "LDrawerViewController.h"
+#import "HistoryViewController.h"
+#import "ViewController.h"
+#import "FaveViewController.h"
+
+#import "CenterNaviController.h"
+#import "AFNetworking.h"
+
+static LDrawerViewController * rootDraw;
+
+@implementation HKUITool
+
+
+
++(LDrawerViewController *) appRootController{
+
+    return rootDraw;
+
+}
++(BOOL) setAppRootController:(LDrawerViewController *) vc {
+
+    rootDraw = vc;
+    
+    if(rootDraw ==nil){
+        
+        return NO;
+    }
+    else{
+    
+        return YES;
+    
+    }
+
+}
++ (UIBarButtonItem*)creatCustomBackBarButtonWithTarget:(id) target andAction:(SEL) action
+{
+    UIBarButtonItem *item = [[UIBarButtonItem alloc]initWithImage:[UIImage imageNamed:@"back_item"] style:UIBarButtonItemStylePlain target:target action:action];
+    [item setWidth:30.0f];
+    [item setImageInsets:UIEdgeInsetsMake(0, 0, 0, 0)];
+    return item;
+}
++(void) AppRootClose{
+
+    [[HKUITool appRootController] close];
+
+}
+
++(void) APPRootCloseOrOpen{
+
+    if([[HKUITool appRootController] drawerState] == LDrawerStateClose){
+    
+        [[HKUITool appRootController ] open];
+    
+    } else if ([[HKUITool appRootController] drawerState] == LDrawerStateOpen){
+    
+    
+        [[HKUITool appRootController ] close];
+    
+    };
+    
+    
+
+
+
+}
++(HistoryViewController *) HistoryViewController{
+
+    static HistoryViewController * hvc = nil;
+    
+    if(hvc ==nil){
+    
+        hvc = [[HistoryViewController alloc]init];
+        
+        
+    
+    }
+    return hvc;
+    
+    
+    
+    
+
+}
++(ViewController *) homePageViewController{
+
+
+  static   ViewController * home = nil;
+    if(home ==nil){
+        
+        home = [[ViewController alloc]init];
+        
+    }
+    return home;
+    
+    
+
+}
++(FaveViewController *) FaveViewController{
+    
+    
+    static  FaveViewController * fave = nil;
+    if(fave ==nil){
+        
+        fave = [[FaveViewController alloc]init];
+        
+    }
+    return fave;
+    
+    
+    
+}
++(void) setCurrentCenterViewControllerWithType:(centerType) type{
+    
+    [HKUITool AppRootClose];
+
+    switch (type) {
+        case centerTypeHome:
+        {
+        
+           CenterNaviController * navi =    (CenterNaviController *) [HKUITool appRootController].centerController;
+            
+            [navi setIndicatorPosition:0];
+            
+            
+            [navi setViewControllers:@[[HKUITool homePageViewController]] animated:YES];
+            
+        
+        }
+            break;
+        case centerTypeHistory:{
+        
+            CenterNaviController * navi =    (CenterNaviController *) [HKUITool appRootController].centerController;
+            
+            [navi setIndicatorPosition:1];
+            
+            [[HKUITool HistoryViewController] updateList];
+            
+            [navi setViewControllers:@[[HKUITool HistoryViewController]] animated:YES];
+        
+        }
+            break;
+        case centerTypeFav:{
+        
+            CenterNaviController * navi =    (CenterNaviController *) [HKUITool appRootController].centerController;
+            [navi setIndicatorPosition:2];
+            
+            [[HKUITool FaveViewController] updateList];
+            
+            [navi setViewControllers:@[[HKUITool FaveViewController]] animated:YES];
+        
+        }
+            break;
+            
+        default:
+            break;
+    }
+
+
+
+
+
+}
++ (UIView *)createTitleViewWithTitle:(NSString *) title{
+    
+    UILabel *titlelabel = [[UILabel alloc]initWithFrame:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width * 0.6f, 44)];
+    
+    titlelabel.textAlignment = NSTextAlignmentCenter;
+    titlelabel.font = [UIFont systemFontOfSize:17];
+    titlelabel.textColor = [UIColor whiteColor];
+    titlelabel.text = title;
+    
+    return titlelabel;
+}
++(BOOL) saveTagsWithArray:(NSArray*) array{
+
+
+    [[NSUserDefaults standardUserDefaults] setObject:array forKey:TypeTags];
+
+   return  [[NSUserDefaults standardUserDefaults] synchronize];
+    
+}
++(nonnull  NSArray *) loadTagesWithDescending:(BOOL) descending{
+
+
+    NSArray * tagList = [[NSUserDefaults standardUserDefaults] objectForKey:TypeTags];
+    
+    if(tagList ==nil || tagList.count ==0){
+    
+        return nil;
+    }
+    
+    if(descending){
+    
+    
+        return tagList;
+    
+    }else
+    {
+    
+        
+        
+        NSMutableArray * asendingArr =[[NSMutableArray alloc]initWithCapacity:tagList.count];
+        
+        for (NSDictionary * dict  in tagList) {
+
+            [asendingArr insertObject:dict atIndex:0];
+            
+        }
+        return asendingArr;
+
+    }
+    
+
+
+
+}
++(void) getTagsListWithClear:(BOOL) clear{
+    NSArray * tagList = [[NSUserDefaults standardUserDefaults] objectForKey:TypeTags];
+    if (tagList && tagList.count != 0) {
+        
+        [[NSNotificationCenter defaultCenter] postNotificationName:NotiTypeTagsUpdate object:nil];
+        return;
+        
+    }
+    
+    
+    AFHTTPRequestOperationManager * manager = [AFHTTPRequestOperationManager manager];
+    
+    manager.responseSerializer = [AFHTTPResponseSerializer serializer];
+    
+    [manager.requestSerializer setValue:@"14396d2b59c87900ed582cfdaff5b157" forHTTPHeaderField:@"apikey"];
+    
+    [manager GET:@"http://apis.baidu.com/showapi_open_bus/weixin/weixin_article_type" parameters:@{} success:^(AFHTTPRequestOperation *operation, id responseObject) {
+        
+        NSDictionary * dict =  [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingMutableLeaves error:nil];
+        
+        NSArray * list  = [dict[@"showapi_res_body"] objectForKey:@"typeList"] ;
+        
+        [HKUITool saveTagsWithArray:list];
+        
+        [[NSNotificationCenter defaultCenter] postNotificationName:NotiTypeTagsUpdate object:nil];
+        
+      
+        
+        
+        
+    } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+        
+        
+        UIAlertView * alert = [[UIAlertView alloc]initWithTitle:@"网络出现问题了！" message:@"是否重新加载？" delegate:self cancelButtonTitle:@"稍后再试" otherButtonTitles:@"重新加载", nil];
+        
+        
+        [alert show];
+        
+    }];
+    
+}
++(BOOL) isLogin{
+
+    return [JMSGUser myInfo] && [JMSGUser myInfo].username;
+
+
+
+}
+/*
+// Only override drawRect: if you perform custom drawing.
+// An empty implementation adversely affects performance during animation.
+- (void)drawRect:(CGRect)rect {
+    // Drawing code
+}
+*/
+
+@end
